@@ -17,7 +17,7 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
-                "https://resolver-frontend-delta.vercel.app/"
+                "https://resolve-r-frontend.vercel.app/"
                 // or your actual Vercel URL
         ));
 
