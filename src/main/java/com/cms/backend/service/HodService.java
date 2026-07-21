@@ -1,0 +1,86 @@
+package com.cms.backend.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cms.backend.dto.complaint.HodComplaintResponseDto;
+import com.cms.backend.dto.complaint.HodComplaintUpdateDto;
+import com.cms.backend.entity.Complaint;
+import com.cms.backend.enums.ComplaintStatus;
+import com.cms.backend.repository.ComplaintRepository;
+
+@Service
+public class HodService {
+
+    /**
+     * Service for HOD-specific operations: listing complaints assigned to the HOD
+     * and updating complaint statuses with business rules enforced.
+     */
+
+    @Autowired
+    private ComplaintRepository complaintRepository;
+
+    /**
+     * Return a list of complaints assigned to the given HOD id, mapped to DTOs.
+     */
+    public List<HodComplaintResponseDto> getComplaintsForHod(Long hodId) {
+
+        List<Complaint> complaints = complaintRepository.findByComplaintDepartmentHodUserId(hodId);
+
+        List<HodComplaintResponseDto> response = new ArrayList<>();
+
+        for (Complaint complaint : complaints) {
+
+            HodComplaintResponseDto dto = new HodComplaintResponseDto();
+
+            dto.setComplaintId(complaint.getComplaintId());
+            dto.setComplaintTitle(complaint.getComplaintTitle());
+            dto.setComplaintDescription(complaint.getComplaintDescription());
+            dto.setStudentName(complaint.getStudent().getUserName());
+            dto.setComplaintStatus(complaint.getComplaintStatus());
+            dto.setDepartmentName(complaint.getComplaintDepartment().getDepartmentName());
+            dto.setCreatedAt(complaint.getCreatedAt());
+
+            response.add(dto);
+        }
+
+        return response;
+    }
+
+    /**
+     * Update complaint status with validation rules:
+     * - Cannot modify a RESOLVED complaint.
+     * - Cannot move directly from PENDING to RESOLVED (must go through IN_PROGRESS).
+     * - Cannot set the same status again.
+     */
+    public String updateComplaintStatus(Long complaintId, HodComplaintUpdateDto dto) {
+
+        Complaint complaint = complaintRepository.findById(complaintId)
+                                .orElseThrow(() -> new RuntimeException("Complaint not found"));
+
+        ComplaintStatus currentStatus = complaint.getComplaintStatus();
+
+        ComplaintStatus newStatus = dto.getComplaintStatus();
+
+        if (currentStatus == ComplaintStatus.RESOLVED) {
+            throw new RuntimeException("Resolved complaint cannot be modified.");
+        }
+
+        if (currentStatus == ComplaintStatus.PENDING && newStatus == ComplaintStatus.RESOLVED) {
+
+            throw new RuntimeException("Complaint must be moved to IN_PROGRESS first.");
+        }
+
+        if (currentStatus == newStatus) {
+            throw new RuntimeException("Complaint is already in this status.");
+        }
+
+        complaint.setComplaintStatus(newStatus);
+        complaintRepository.save(complaint);
+
+        return "Complaint status updated successfully.";
+    }
+}
